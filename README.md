@@ -80,7 +80,6 @@ host-b                    running (virtualbox)
 `vagrant ssh host-a`
 `vagrant ssh host-b`
 `vagrant ssh host-c`
-```
 
 # Assignment
 This section describes the assignment, its requirements and the tasks the student has to complete.
