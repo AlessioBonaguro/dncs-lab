@@ -7,6 +7,7 @@
 # you're doing.
 Vagrant.configure("2") do |config|
   config.vm.box_check_update = false
+  config.ssh.insert_key = false
   config.vm.provider "virtualbox" do |vb|
     vb.customize ["modifyvm", :id, "--usb", "on"]
     vb.customize ["modifyvm", :id, "--usbehci", "off"]
@@ -22,6 +23,7 @@ Vagrant.configure("2") do |config|
     router1.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-1", auto_config: false
     router1.vm.network "private_network", virtualbox__intnet: "broadcast_router-inter", auto_config: false
     router1.vm.provision "shell", path: "common.sh"
+    router1.vm.provision "shell", path: "router_1.sh"
     router1.vm.provider "virtualbox" do |vb|
       vb.memory = 256
     end
@@ -32,46 +34,50 @@ Vagrant.configure("2") do |config|
     router2.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-2", auto_config: false
     router2.vm.network "private_network", virtualbox__intnet: "broadcast_router-inter", auto_config: false
     router2.vm.provision "shell", path: "common.sh"
+    router2.vm.provision "shell", path: "router_2.sh"
     router2.vm.provider "virtualbox" do |vb|
       vb.memory = 256
     end
   end
-  config.vm.define "switch" do |switch|
-    switch.vm.box = "ubuntu/bionic64"
-    switch.vm.hostname = "switch"
-    switch.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-1", auto_config: false
-    switch.vm.network "private_network", virtualbox__intnet: "broadcast_host_a", auto_config: false
-    switch.vm.network "private_network", virtualbox__intnet: "broadcast_host_b", auto_config: false
-    switch.vm.provision "shell", path: "switch.sh"
-    switch.vm.provider "virtualbox" do |vb|
-      vb.memory = 256
-    end
-  end
+  # config.vm.define "switch" do |switch|
+  #   switch.vm.box = "ubuntu/bionic64"
+  #   switch.vm.hostname = "switch"
+  #   switch.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-1", auto_config: false
+  #   switch.vm.network "private_network", virtualbox__intnet: "broadcast_host_a", auto_config: false
+  #   switch.vm.network "private_network", virtualbox__intnet: "broadcast_host_b", auto_config: false
+  #   switch.vm.provision "shell", path: "switch.sh"
+  #   switch.vm.provider "virtualbox" do |vb|
+  #     vb.memory = 256
+  #   end
+  # end
   config.vm.define "host-a" do |hosta|
     hosta.vm.box = "ubuntu/bionic64"
     hosta.vm.hostname = "host-a"
-    hosta.vm.network "private_network", virtualbox__intnet: "broadcast_host_a", auto_config: false
+    # hosta.vm.network "private_network", virtualbox__intnet: "broadcast_host_a", auto_config: false
+    hosta.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-1", auto_config: false
     hosta.vm.provision "shell", path: "common.sh"
+    hosta.vm.provision "shell", path: "host_a.sh"
     hosta.vm.provider "virtualbox" do |vb|
       vb.memory = 256
     end
   end
-  config.vm.define "host-b" do |hostb|
-    hostb.vm.box = "ubuntu/bionic64"
-    hostb.vm.hostname = "host-b"
-    hostb.vm.network "private_network", virtualbox__intnet: "broadcast_host_b", auto_config: false
-    hostb.vm.provision "shell", path: "common.sh"
-    hostb.vm.provider "virtualbox" do |vb|
-      vb.memory = 256
-    end
-  end
+  # config.vm.define "host-b" do |hostb|
+  #   hostb.vm.box = "ubuntu/bionic64"
+  #   hostb.vm.hostname = "host-b"
+  #   hostb.vm.network "private_network", virtualbox__intnet: "broadcast_host_b", auto_config: false
+  #   hostb.vm.provision "shell", path: "common.sh"
+  #   hostb.vm.provider "virtualbox" do |vb|
+  #     vb.memory = 256
+  #   end
+  # end
   config.vm.define "host-c" do |hostc|
     hostc.vm.box = "ubuntu/bionic64"
     hostc.vm.hostname = "host-c"
     hostc.vm.network "private_network", virtualbox__intnet: "broadcast_router-south-2", auto_config: false
     hostc.vm.provision "shell", path: "common.sh"
+    hostc.vm.provision "shell", path: "host_c.sh"                   # Sh command for host-c
     hostc.vm.provider "virtualbox" do |vb|
-      vb.memory = 256
+      vb.memory = 512                     # OLD: 256
     end
   end
 end
