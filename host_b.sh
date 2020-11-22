@@ -3,7 +3,7 @@ sudo apt update
 sudo ip link set enp0s8 up
 echo "Host-B -> net set up..\n"
 sudo /bin/su -c \
-"cat << EOF > /etc/netplan/50-host-b-netConf.yaml
+"cat << EOF > /etc/netplan/51-host-b-netConf.yaml
 network:
    ethernets:
        enp0s8:

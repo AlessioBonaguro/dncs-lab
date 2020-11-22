@@ -151,7 +151,7 @@ sudo apt update
 sudo ip link set enp0s8 up
 echo "Host-A -> net set up..\n"
 sudo /bin/su -c \
-"cat << EOF > /etc/netplan/50-host-a-netConf.yaml
+"cat << EOF > /etc/netplan/51-host-a-netConf.yaml
 network:
    ethernets:
        enp0s8:
@@ -159,8 +159,6 @@ network:
            addresses: [192.168.224.2/25]
            gateway4: 192.168.192.1
            routes:
-           - to: 192.168.224.0/25
-           via: 192.168.224.1
            - to: 192.168.64.0/23
              via: 192.168.224.1
    version: 2
@@ -170,3 +168,77 @@ echo "Host-A -> static IP set..\n"
 sudo netplan apply
 echo "Host-A -> Route add..\n"
 ```
+In this script, after the apt get update, is turning on the ethernet peripheral enp0s8, and it's created a yaml file, which contains all configurations of the network. At the end of sript, this file is applyed through "netplan apply" command.
+Moreover, there is some control stamp made by "echo" command.
+The yaml file name, which is save in /etc/netplan folder, is "51-host-a-netConf". This because in this method the yaml custom configuration file is execute after the default configuration file, which start with 50.
+In this file I specify that the interface enp0s8 doesn't use dhcp service, the IP in this interface is 192.168.224.2, the netmask is 255.255.255.128 (/25), the gateway of network is 192.168.224.1 and the I specify the routing table.
+On the routing table I declare that all packets which interestig subnet 192.168.64.0/23, so the host-c subnet, are send to router-1 (192.168.224.1), and when are here they're manage by router-1 routing table.
+
+### Host-b
+For host-b, like for host-a, I use only a script when machine is created.  
+```bash
+sudo apt update
+sudo ip link set enp0s8 up
+echo "Host-B -> net set up..\n"
+sudo /bin/su -c \
+"cat << EOF > /etc/netplan/51-host-b-netConf.yaml
+network:
+   ethernets:
+       enp0s8:
+           dhcp4: false
+           addresses: [192.168.208.2/22]
+           gateway4: 192.168.208.1
+           routes:
+           - to: 192.168.64.0/23
+             via: 192.168.208.1
+   version: 2
+EOF
+"
+echo "Host-B -> static IP set..\n"
+sudo netplan apply
+echo "Host-B -> Route add..\n"
+```
+This script is so similar to script of host-a, so I resend to host-a expalnation.
+
+### Host-c
+Host-c needs two script, one similar to Host-a and host-b which is executed only in the first startup of machine, and one other is executed at every Startup of pc for activate docker service.
+```bash
+sudo apt update
+sudo apt install -y docker.io
+sudo ip link set enp0s8 up
+echo "Host-C -> net set up..\n"
+sudo /bin/su -c \
+"cat << EOF > /etc/netplan/50-host-c-netConf.yaml
+network:
+   ethernets:
+       enp0s8:
+           dhcp4: false
+           addresses: [192.168.64.2/23]
+           gateway4: 192.168.64.1
+           routes:
+           - to: 192.168.208.0/22
+             via: 192.168.64.1
+           - to: 192.168.224.0/25
+             via: 192.168.64.1
+   version: 2
+EOF
+"
+# sudo ifconfig enp0s8 192.168.64.2 netmask 255.255.254.0
+echo "Host-C -> static IP set..\n"
+# sudo route add -net 192.168.64.0 netmask 255.255.254.0 gw 192.168.64.1 dev enp0s8
+# sudo route add -net 192.168.128.0 netmask 255.255.255.0 gw 192.168.64.1 dev enp0s8
+# sudo route add -net 192.168.192.0 netmask 255.255.252.0 gw 192.168.64.1 dev enp0s8
+echo "Host-C -> Route add..\n"
+# sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
+# echo "Host-C -> webServer run..\n"
+sudo netplan apply
+```
+This script is executed only at first turning on of machine.
+After apt update and the installation of docker, is activated enp0s8 interface and is created the yaml network configuration file.
+In this file I specify that the selected interface, enp0s8, doesn't use dhcp, use the IP address 192.168.64.1 and the netmask 255.255.254.0 (/23), the gateway is router-2 and is specify routing table.
+In this table, I illustrated that for send a packet on host-a or host-b subnet, must pass through router-2.
+```bash
+sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
+echo "Host-C -> webServer run..\n"
+```
+In this second script, which is execute at every machine startup, is activate docker webServer.
