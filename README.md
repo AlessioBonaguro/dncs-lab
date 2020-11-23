@@ -157,6 +157,7 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.224.2/25]
+           gateway4: 192.168.192.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.224.1
@@ -170,7 +171,7 @@ echo "Host-A -> Route add..\n"
 In this script, after the apt get update, is turning on the ethernet peripheral enp0s8, and it's created a yaml file, which contains all configurations of the network. At the end of sript, this file is applyed through "netplan apply" command.
 Moreover, there is some control stamp made by "echo" command.
 The yaml file name, which is save in /etc/netplan folder, is "51-host-a-netConf". This because in this method the yaml custom configuration file is execute after the default configuration file, which start with 50.
-In this file I specify that the interface enp0s8 doesn't use dhcp service, the IP in this interface is 192.168.224.2, the netmask is 255.255.255.128 (/25), and the I specify the routing table.
+In this file I specify that the interface enp0s8 doesn't use dhcp service, the IP in this interface is 192.168.224.2, the net gateway is 192.168.224.1 (router-1), the netmask is 255.255.255.128 (/25), and the I specify the routing table.
 On the routing table I declare that all packets which interestig subnet 192.168.64.0/23, so the host-c subnet, are send to router-1 (192.168.224.1), and when are here they're manage by router-1 routing table.
 
 ### Host-b
@@ -186,6 +187,7 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.208.2/22]
+           gateway4: 192.168.208.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.208.1
@@ -197,7 +199,7 @@ sudo netplan apply
 echo "Host-B -> Route add..\n"
 ```
 This script is so similar to host-a's script, so for explanation I resend to host-a section.  
-The few things those change are the IP address, which is 192.168.208.2 for host-b, and the address of gateway for the ruting map.  
+The few things those change are the IP address, which is 192.168.208.2 for host-b, and the address of gateway and the routing map.  
 Note that host-a and host-b are in two different VLAN, but they don't know.
 
 ### Host-c
@@ -214,6 +216,7 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.64.2/23]
+           gateway4: 192.168.64.1
            routes:
            - to: 192.168.208.0/22
              via: 192.168.64.1
@@ -228,7 +231,7 @@ sudo netplan apply
 ```
 This script is executed only at first turning on of machine.
 After apt update and the installation of docker, is activated enp0s8 interface and is created the yaml network configuration file.
-In this file I specify that the selected interface, enp0s8, doesn't use dhcp, use the IP address 192.168.64.1 and the netmask 255.255.254.0 (/23), and is specify routing table.
+In this file I specify that the selected interface, enp0s8, doesn't use dhcp, use the IP address 192.168.64.1 and the netmask 255.255.254.0 (/23), the gateway is 192.168.64.1 and is specify routing table.
 In this table, I illustrated that for send a packet on host-a or host-b subnet, must pass through router-2.
 ```bash
 sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
@@ -351,5 +354,105 @@ curl 192.168.62.2
 ```
 from host-a and host-b and I can visualized this:
 ```html
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hello World</title>
+<link href="data:image/png;base64,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" rel="icon" type="image/png" />
+<style>
+body {
+  margin: 0px;
+  font: 20px 'RobotoRegular', Arial, sans-serif;
+  font-weight: 100;
+  height: 100%;
+  color: #0f1419;
+}
+div.info {
+  display: table;
+  background: #e8eaec;
+  padding: 20px 20px 20px 20px;
+  border: 1px dashed black;
+  border-radius: 10px;
+  margin: 0px auto auto auto;
+}
+div.info p {
+    display: table-row;
+    margin: 5px auto auto auto;
+}
+div.info p span {
+    display: table-cell;
+    padding: 10px;
+}
+img {
+    width: 176px;
+    margin: 36px auto 36px auto;
+    display:block;
+}
+div.smaller p span {
+    color: #3D5266;
+}
+h1, h2 {
+  font-weight: 100;
+}
+div.check {
+    padding: 0px 0px 0px 0px;
+    display: table;
+    margin: 36px auto auto auto;
+    font: 12px 'RobotoRegular', Arial, sans-serif;
+}
+#footer {
+    position: fixed;
+    bottom: 36px;
+    width: 100%;
+}
+#center {
+    width: 400px;
+    margin: 0 auto;
+    font: 12px Courier;
+}
 
+</style>
+<script>
+var ref;
+function checkRefresh(){
+    if (document.cookie == "refresh=1") {
+        document.getElementById("check").checked = true;
+        ref = setTimeout(function(){location.reload();}, 1000);
+    } else {
+    }
+}
+function changeCookie() {
+    if (document.getElementById("check").checked) {
+        document.cookie = "refresh=1";
+        ref = setTimeout(function(){location.reload();}, 1000);
+    } else {
+        document.cookie = "refresh=0";
+        clearTimeout(ref);
+    }
+}
+</script>
+</head>
+<body onload="checkRefresh();">
+<img alt="NGINX Logo" src="http://d37h62yn5lrxxl.cloudfront.net/assets/nginx.png"/>
+<div class="info">
+<p><span>Server&nbsp;address:</span> <span>172.17.0.2:80</span></p>
+<p><span>Server&nbsp;name:</span> <span>921ef0b60cdb</span></p>
+<p class="smaller"><span>Date:</span> <span>23/Nov/2020:15:00:45 +0000</span></p>
+<p class="smaller"><span>URI:</span> <span>/</span></p>
+</div>
+<br>
+<div class="info">
+    <p class="smaller"><span>Host:</span> <span>192.168.64.2</span></p>
+    <p class="smaller"><span>X-Forwarded-For:</span> <span></span></p>
+</div>
+
+<div class="check"><input type="checkbox" id="check" onchange="changeCookie()"> Auto Refresh</div>
+    <div id="footer">
+        <div id="center" align="center">
+            Request ID: 62189571eeaf4f77c78a6b94963b317e<br/>
+            &copy; NGINX, Inc. 2018
+        </div>
+    </div>
+</body>
+</html>
 ```

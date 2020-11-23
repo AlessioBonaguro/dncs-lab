@@ -9,6 +9,7 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.208.2/22]
+           gateway4: 192.168.208.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.208.1
