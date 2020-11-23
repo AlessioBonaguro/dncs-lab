@@ -342,3 +342,14 @@ echo "Router-2 -> Route add..\n"
 ```
 Like other scripts, in this script firstable launch apt update, after that bringing up the two network interface and so enable ip packet forwarding and set addresses and routing table through to yaml configuration file.
 in this case was setting in enp0s8 the address 192.168.64.1, sure enaugh it be the router for host-c's subnetwork, and in enp0s9 the address 192.168.128.2. The routing table of this device specify that packets with destiation 192.168.208.0 or 192.168.214.0 have to be send to router-1.
+
+## Final results
+Finally I could try the system. I try to ping host-c from host-a and host-b and I verify that from host-a and host-b can see (with curl) the html page present in host-c docker webserver.
+The results is that I can write:
+```bash
+curl 192.168.62.2
+```
+from host-a and host-b and I can visualized this:
+```html
+
+```
