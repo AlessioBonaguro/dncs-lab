@@ -8,18 +8,13 @@ sudo sysctl -p /etc/sysctl.conf
 # Set ip addresses
 echo "Router-2 -> net set up..\n"
 sudo /bin/su -c \
-"cat << EOF > /etc/netplan/50-router-2-netConf.yaml
+"cat << EOF > /etc/netplan/51-router-2-netConf.yaml
 network:
    ethernets:
        enp0s8:
            dhcp4: false
            addresses: [192.168.64.1/23]
            gateway4: 192.168.64.1
-           routes:
-           - to: 192.168.224.0/25
-             via: 192.168.64.1
-           - to: 192.168.208.0/22
-             via: 192.168.64.1
        enp0s9:
            dhcp4: false
            addresses: [192.168.128.2/24]
@@ -32,6 +27,11 @@ network:
    version: 2
 EOF
 "
+# routes:
+# - to: 192.168.224.0/25
+#   via: 192.168.64.1
+# - to: 192.168.208.0/22
+#   via: 192.168.64.1
 # sudo ifconfig enp0s8 192.168.64.1 netmask 255.255.254.0
 # sudo ifconfig enp0s9 192.168.128.2 netmask 255.255.255.0
 echo "Router-2 -> static IP set..\n"

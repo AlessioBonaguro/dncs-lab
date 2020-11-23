@@ -198,7 +198,9 @@ echo "Host-B -> static IP set..\n"
 sudo netplan apply
 echo "Host-B -> Route add..\n"
 ```
-This script is so similar to script of host-a, so I resend to host-a expalnation.
+This script is so similar to host-a's script, so for explanation I resend to host-a section.  
+The few things those change are the IP address, which is 192.168.208.2 for host-b, and the address of gateway (router-1).  
+Note that host-a and host-b are in two different VLAN, but they don't know.
 
 ### Host-c
 Host-c needs two script, one similar to Host-a and host-b which is executed only in the first startup of machine, and one other is executed at every Startup of pc for activate docker service.
@@ -208,7 +210,7 @@ sudo apt install -y docker.io
 sudo ip link set enp0s8 up
 echo "Host-C -> net set up..\n"
 sudo /bin/su -c \
-"cat << EOF > /etc/netplan/50-host-c-netConf.yaml
+"cat << EOF > /etc/netplan/51-host-c-netConf.yaml
 network:
    ethernets:
        enp0s8:
@@ -223,14 +225,8 @@ network:
    version: 2
 EOF
 "
-# sudo ifconfig enp0s8 192.168.64.2 netmask 255.255.254.0
 echo "Host-C -> static IP set..\n"
-# sudo route add -net 192.168.64.0 netmask 255.255.254.0 gw 192.168.64.1 dev enp0s8
-# sudo route add -net 192.168.128.0 netmask 255.255.255.0 gw 192.168.64.1 dev enp0s8
-# sudo route add -net 192.168.192.0 netmask 255.255.252.0 gw 192.168.64.1 dev enp0s8
 echo "Host-C -> Route add..\n"
-# sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
-# echo "Host-C -> webServer run..\n"
 sudo netplan apply
 ```
 This script is executed only at first turning on of machine.
@@ -242,3 +238,91 @@ sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
 echo "Host-C -> webServer run..\n"
 ```
 In this second script, which is execute at every machine startup, is activate docker webServer.
+
+### Switch
+Like host-c, also switch require two script those are invoked in the same method.  
+<br>
+```bash
+sudo /bin/su -c "echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf"
+sudo sysctl -p /etc/sysctl.conf
+echo "Switch -> IP packet forward active..\n"
+sudo ovs-vsctl add-br my_bridge
+sudo ovs-vsctl add-port my_bridge enp0s8
+sudo ovs-vsctl add-port my_bridge enp0s9 tag=2
+sudo ovs-vsctl add-port my_bridge enp0s10 tag=3
+echo "Switch -> Port assign to VLAN..\n"
+```
+The first script, which is call at first machine startup, do two things: firstable, enables the IP packet forwarding, and after create a switch.  
+To enable ip packet forwarding is adding to /etc/sysctl.conf a line with a specific command, and this is made in the second row of code, and after applies the new configuration thanks the third line of code. This is made because ubuntu, with her default configuration, doesn't permit the forwarding of receving packets.  
+after enable this configuration, machine is ready to became a switch thanks openvswitch packet. So, in line 4, after a firstable control stamp, I create a new bridge, so a entity that work at layer two and sort packets, and, in the next row, I add the three network interface to "my_bridge". I add enp0s8, which is the port connect to router-1, like trunked port, so "my_bridge" forward packet of all VLAN, so I add enp0s9, which is link to host-a, with VLAN tag 2, so it becames a part of VLAN 2, and finally I add enp0s10, connect with host-b, to VLAN 3.  
+<br>
+```bash
+sudo ip link set enp0s8 up
+sudo ip link set enp0s9 up
+sudo ip link set enp0s10 up
+```
+The second script, call automatically at every startup of machine, needs only to activated the different network interface.  
+
+### Router-1
+The router needs the most important part of code. Tere are to script for each router, and these permit to have the comunication between the two subnets.  
+<br>
+```bash
+sudo apt update
+sudo apt install vlan
+sudo /bin/su -c "echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf"
+sudo sysctl -p /etc/sysctl.conf
+echo "Router-1 -> net set up..\n"
+sudo /bin/su -c \
+"cat << EOF > /etc/netplan/51-router-1-netConf.yaml
+network:
+   ethernets:
+       enp0s8.2:
+           dhcp4: false
+           addresses: [192.168.224.1/25]
+           gateway4: 192.168.224.1
+       enp0s8.3:
+           dhcp4: false
+           addresses: [192.168.208.1/22]
+           gateway4: 192.168.208.1
+       enp0s9:
+           dhcp4: false
+           addresses: [192.168.128.1/24]
+           gateway4: 192.168.128.1
+           routes:
+           - to: 192.168.64.0/23
+             via: 192.168.128.2
+   version: 2
+EOF
+"
+echo "Router-1 -> static IP set..\n"
+sudo netplan apply
+echo "Router-1 -> Route add..\n"
+```
+In the first code, which are invok only the first time, I install vlan packet, necessary to virtual split enp0s8 in two virtual interface, I enable ip packet forwarding, like in switch, abd after configure the netplan.yaml file.  
+Here, I choose the ip address of device for each interface, I selected the gateway (which is always itself), and for enp0s9 I add to routing table the manege of packets destinated to the host-c's subnet. Sure enaugh, if arrive a packet with destiation 192.168.64.0, it be sending to 192.168.128.2, so the router-2.  
+After this, I apply the new configuration whith "netplan apply" command.
+<br>
+```bash
+sudo modprobe 8021q
+sudo vconfig add enp0s8 2
+sudo vconfig add enp0s8 3
+sudo ip link set enp0s8 up
+sudo ip link set enp0s8.2 up
+sudo ip link set enp0s8.3 up
+sudo ip link set enp0s9 up
+```
+In this second script it's manage the VLAN and bringing up port.  
+With the first command, it's enable the vlan standard to read and send ip packet.  
+with the second and the third row, instead, it's be splitted the enp0s8 interface in two virtual interface, one for vlan 2 and the other for vlan 3.
+With the next row are activate all network interface.  
+### Router-2
+The router-2 manage the communication of host-c subnet with left part of net. Here there is ony two port, sure enaugh there isn't a split give by VLAN.
+```bash
+sudo modprobe 8021q
+sudo vconfig add enp0s8 2
+sudo vconfig add enp0s8 3
+sudo ip link set enp0s8 up
+sudo ip link set enp0s8.2 up
+sudo ip link set enp0s8.3 up
+sudo ip link set enp0s9 up
+```
