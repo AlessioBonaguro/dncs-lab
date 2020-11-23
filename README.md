@@ -157,7 +157,6 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.224.2/25]
-           gateway4: 192.168.192.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.224.1
@@ -171,7 +170,7 @@ echo "Host-A -> Route add..\n"
 In this script, after the apt get update, is turning on the ethernet peripheral enp0s8, and it's created a yaml file, which contains all configurations of the network. At the end of sript, this file is applyed through "netplan apply" command.
 Moreover, there is some control stamp made by "echo" command.
 The yaml file name, which is save in /etc/netplan folder, is "51-host-a-netConf". This because in this method the yaml custom configuration file is execute after the default configuration file, which start with 50.
-In this file I specify that the interface enp0s8 doesn't use dhcp service, the IP in this interface is 192.168.224.2, the netmask is 255.255.255.128 (/25), the gateway of network is 192.168.224.1 and the I specify the routing table.
+In this file I specify that the interface enp0s8 doesn't use dhcp service, the IP in this interface is 192.168.224.2, the netmask is 255.255.255.128 (/25), and the I specify the routing table.
 On the routing table I declare that all packets which interestig subnet 192.168.64.0/23, so the host-c subnet, are send to router-1 (192.168.224.1), and when are here they're manage by router-1 routing table.
 
 ### Host-b
@@ -187,7 +186,6 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.208.2/22]
-           gateway4: 192.168.208.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.208.1
@@ -199,7 +197,7 @@ sudo netplan apply
 echo "Host-B -> Route add..\n"
 ```
 This script is so similar to host-a's script, so for explanation I resend to host-a section.  
-The few things those change are the IP address, which is 192.168.208.2 for host-b, and the address of gateway (router-1).  
+The few things those change are the IP address, which is 192.168.208.2 for host-b, and the address of gateway for the ruting map.  
 Note that host-a and host-b are in two different VLAN, but they don't know.
 
 ### Host-c
@@ -216,7 +214,6 @@ network:
        enp0s8:
            dhcp4: false
            addresses: [192.168.64.2/23]
-           gateway4: 192.168.64.1
            routes:
            - to: 192.168.208.0/22
              via: 192.168.64.1
@@ -231,7 +228,7 @@ sudo netplan apply
 ```
 This script is executed only at first turning on of machine.
 After apt update and the installation of docker, is activated enp0s8 interface and is created the yaml network configuration file.
-In this file I specify that the selected interface, enp0s8, doesn't use dhcp, use the IP address 192.168.64.1 and the netmask 255.255.254.0 (/23), the gateway is router-2 and is specify routing table.
+In this file I specify that the selected interface, enp0s8, doesn't use dhcp, use the IP address 192.168.64.1 and the netmask 255.255.254.0 (/23), and is specify routing table.
 In this table, I illustrated that for send a packet on host-a or host-b subnet, must pass through router-2.
 ```bash
 sudo docker run -it --rm -d -p 8080:80 --name webServer dustnic82/nginx-test
@@ -279,15 +276,12 @@ network:
        enp0s8.2:
            dhcp4: false
            addresses: [192.168.224.1/25]
-           gateway4: 192.168.224.1
        enp0s8.3:
            dhcp4: false
            addresses: [192.168.208.1/22]
-           gateway4: 192.168.208.1
        enp0s9:
            dhcp4: false
            addresses: [192.168.128.1/24]
-           gateway4: 192.168.128.1
            routes:
            - to: 192.168.64.0/23
              via: 192.168.128.2
@@ -299,7 +293,7 @@ sudo netplan apply
 echo "Router-1 -> Route add..\n"
 ```
 In the first code, which are invok only the first time, I install vlan packet, necessary to virtual split enp0s8 in two virtual interface, I enable ip packet forwarding, like in switch, abd after configure the netplan.yaml file.  
-Here, I choose the ip address of device for each interface, I selected the gateway (which is always itself), and for enp0s9 I add to routing table the manege of packets destinated to the host-c's subnet. Sure enaugh, if arrive a packet with destiation 192.168.64.0, it be sending to 192.168.128.2, so the router-2.  
+Here, I choose the ip address of device for each interface and for enp0s9 I add to routing table the instruction to manage the host-c-subnet destination packages. Sure enaugh, if arrive a packet with destiation 192.168.64.0, it be sending to 192.168.128.2, so to the router-2.  
 After this, I apply the new configuration whith "netplan apply" command.
 <br>
 ```bash
@@ -316,13 +310,35 @@ With the first command, it's enable the vlan standard to read and send ip packet
 with the second and the third row, instead, it's be splitted the enp0s8 interface in two virtual interface, one for vlan 2 and the other for vlan 3.
 With the next row are activate all network interface.  
 ### Router-2
-The router-2 manage the communication of host-c subnet with left part of net. Here there is ony two port, sure enaugh there isn't a split give by VLAN.
+The router-2 manage the communication of host-c subnet with left part of net. Here there is ony two port, sure enaugh there isn't a split give by VLAN, so need only a script to works.
 ```bash
-sudo modprobe 8021q
-sudo vconfig add enp0s8 2
-sudo vconfig add enp0s8 3
+sudo apt update
 sudo ip link set enp0s8 up
-sudo ip link set enp0s8.2 up
-sudo ip link set enp0s8.3 up
 sudo ip link set enp0s9 up
+sudo /bin/su -c "echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf"
+sudo sysctl -p /etc/sysctl.conf
+echo "Router-2 -> net set up..\n"
+sudo /bin/su -c \
+"cat << EOF > /etc/netplan/49-router-2-netConf.yaml
+network:
+   ethernets:
+       enp0s8:
+           dhcp4: false
+           addresses: [192.168.64.1/23]
+       enp0s9:
+           dhcp4: false
+           addresses: [192.168.128.2/24]
+           routes:
+           - to: 192.168.224.0/25
+             via: 192.168.128.1
+           - to: 192.168.208.0/22
+             via: 192.168.128.1
+   version: 2
+EOF
+"
+echo "Router-2 -> static IP set..\n"
+sudo netplan apply
+echo "Router-2 -> Route add..\n"
 ```
+Like other scripts, in this script firstable launch apt update, after that bringing up the two network interface and so enable ip packet forwarding and set addresses and routing table through to yaml configuration file.
+in this case was setting in enp0s8 the address 192.168.64.1, sure enaugh it be the router for host-c's subnetwork, and in enp0s9 the address 192.168.128.2. The routing table of this device specify that packets with destiation 192.168.208.0 or 192.168.214.0 have to be send to router-1.
